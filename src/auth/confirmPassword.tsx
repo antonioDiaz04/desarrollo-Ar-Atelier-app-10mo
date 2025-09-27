@@ -5,10 +5,11 @@ import { EyeIcon, EyeSlashIcon, ArrowLeftIcon, AtSymbolIcon, LockClosedIcon } fr
 // import { AuthService } from '../services/AuthService'; // ← Comentar para modo estático
 // import AsyncStorage from '@react-native-async-storage/async-storage'; // ← Comentar para modo estático
 
-const LoginScreen: React.FC = () => {
+const RecoverPassword: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -80,9 +81,9 @@ const LoginScreen: React.FC = () => {
           />
         </View>
 
-        <Text className="text-4xl font-extrabold text-black mb-2 text-center">Inicia Sesión</Text>
+        <Text className="text-4xl font-extrabold text-black mb-2 text-center">Recuperacion de contraseña</Text>
         <Text className="text-base text-gray-500 mb-8 text-center max-w-xs">
-          Ingresa tus datos para acceder a tu cuenta y disfrutar de la aplicación.
+          Ingresa tus datos para poder recuperar tu coontraseña.
         </Text>
 
         <View className="w-full space-y-4 mb-4">
@@ -121,6 +122,24 @@ const LoginScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
+          {/* newPassword */}
+          <View>
+            <Text className="text-sm font-medium text-gray-700 mb-1">Repite la contraseña</Text>
+            <View className="relative w-full h-14 flex-row items-center bg-gray-50 border border-gray-300 rounded-lg px-4">
+              <LockClosedIcon size={20} color="#6B7280" className="mr-3" />
+              <TextInput
+                className="flex-1 text-base text-gray-900 ml-2"
+                placeholder="Repite la contraseña"
+                placeholderTextColor="#a1a1aa"
+                secureTextEntry={!showPassword}
+                value={newPassword}
+                onChangeText={setNewPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} className="p-2">
+                {showPassword ? <EyeIcon size={20} color="#6B7280" /> : <EyeSlashIcon size={20} color="#6B7280" />}
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {errorMessage ? <Text className="text-red-500 text-sm mb-4">{errorMessage}</Text> : null}
@@ -141,4 +160,4 @@ const LoginScreen: React.FC = () => {
   );
 };
 
-export default LoginScreen;
+export default RecoverPassword;
