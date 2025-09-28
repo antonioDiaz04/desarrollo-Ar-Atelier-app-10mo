@@ -9,6 +9,7 @@ import BottomNavBar from '~/components/BottomNavBar';
 import Sidebar from '~/components/Sidebar';
 import RentalProcessSection from '~/components/RentalProcessSection';
 
+// Pantalla Catálogo (estática) aqui se implementa lo de los vestidos 
 // Definición de tipos para los datos de los vestidos
 interface Dress {
   _id: string;
