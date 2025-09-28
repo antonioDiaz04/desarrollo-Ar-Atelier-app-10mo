@@ -9,6 +9,7 @@ import {
   ClockIcon, // Se agregó el ícono de reloj
 } from "react-native-heroicons/outline";
 
+// Navegación Nav-Bar
 const BottomNavBar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
