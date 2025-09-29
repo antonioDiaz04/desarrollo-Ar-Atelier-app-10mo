@@ -15,7 +15,7 @@ import { ArrowLeftIcon, StarIcon } from "react-native-heroicons/outline";
 import { useNavigate, useParams } from "react-router-native";
 
 const { width } = Dimensions.get("window");
-
+// Pantalla Detalle Vestido
 // Definición de la interfaz para los datos del vestido (versión final)
 interface Product {
   _id: string;
