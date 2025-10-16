@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+// import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigate } from 'react-router-native';
+import { View, Text, Image, Animated, TouchableOpacity, ScrollView, StyleSheet, RefreshControl, Platform } from 'react-native';
 
 const RentalProcessSection: React.FC = () => {
     const navigate = useNavigate();
@@ -33,9 +34,9 @@ const RentalProcessSection: React.FC = () => {
     ];
 
     return (
-        <View className="p-6">
+        <View style={styles.mainCardStyle} className="p-6">
             <Text className="text-3xl font-bold text-gray-900 mb-8">
-                Proceso de Renta
+                Pasos para Renta
             </Text>
             <View className="flex-col">
                 {rentalSteps.map((step) => (
@@ -61,4 +62,28 @@ const RentalProcessSection: React.FC = () => {
     );
 };
 
+const styles = StyleSheet.create({
+  // ------------------------------------------
+  // ESTILOS CLAVE PARA EL EFECTO: TARJETA + SCROLL DESBORDANTE
+  // ------------------------------------------
+  mainCardStyle: {
+    // Define la tarjeta (card) con el fondo, sombra y margen exterior
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginHorizontal: 16, // Margen exterior que define el ancho de la "tarjeta"
+    marginBottom: 24, // Espacio entre cards
+    paddingTop: 16, 
+    paddingBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, 
+    shadowRadius: 8,
+    elevation: 5,
+    // CLAVE: Usa 'visible' en iOS para que los elementos del carrusel sobresalgan.
+    // En Android, esto puede no funcionar, por lo que el enfoque anterior (tarjeta rota) es más seguro.
+    overflow: Platform.OS === 'ios' ? 'visible' : 'hidden', 
+  },
+ 
+
+});
 export default RentalProcessSection;

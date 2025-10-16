@@ -2,6 +2,11 @@
   "expo": {
     "name": "ar-atelier",
     "slug": "ar-atelier",
+     "permissions": ["CAMERA"],
+    "webview": {
+      "permissions": ["CAMERA"]
+    },
+   
     "version": "1.0.0",
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,6 +34,8 @@
       }
     },
     "android": {
+      "permissions": ["CAMERA"],
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -10,19 +10,28 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { ArrowLeftIcon, StarIcon } from "react-native-heroicons/outline";
-// import ImageViewing from "react-native-image-viewing";
+import {
+  ArrowLeftIcon,
+  StarIcon,
+  ShoppingBagIcon,
+  CalendarIcon,
+  TagIcon,
+  SwatchIcon,
+  CubeIcon,
+} from "react-native-heroicons/outline";
 import { useNavigate, useParams } from "react-router-native";
 
+import { API_URL } from "@env";
+
 const { width } = Dimensions.get("window");
-// Pantalla Detalle Vestido
-// Definición de la interfaz para los datos del vestido (versión final)
+
+// Definición de la interfaz (se mantiene igual)
 interface Product {
   _id: string;
   nombre: string;
   descripcion: string;
   color: string;
-  opcionesTipoTransaccion: 'venta' | 'renta' | string;
+  opcionesTipoTransaccion: "venta" | "renta" | string;
   talla: string;
   tallas_disponibles: string[];
   estilo: string;
@@ -46,6 +55,23 @@ interface Product {
   disponible_renta: boolean;
 }
 
+// --- Componente para las Fichas de Características (Chips) ---
+interface FeatureChipProps {
+  label: string;
+  value: string;
+  icon: React.ElementType;
+}
+
+const FeatureChip: React.FC<FeatureChipProps> = ({ label, value, icon: Icon }) => (
+  <View className="flex-row items-center bg-gray-200 rounded-full px-3 py-1 mr-2 mb-2">
+    <Icon size={16} color="#4B5563" />
+    <Text className="text-xs font-semibold text-gray-700 ml-1">
+      {label}: **{value}**
+    </Text>
+  </View>
+);
+// -----------------------------------------------------------
+
 const ProductDetailScreen = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -53,9 +79,6 @@ const ProductDetailScreen = () => {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
-  const [isViewerVisible, setViewerVisible] = useState(false);
-  const [startIndex, setStartIndex] = useState(0);
 
   useEffect(() => {
     const fetchProductData = async () => {
@@ -67,8 +90,7 @@ const ProductDetailScreen = () => {
       try {
         setLoading(true);
         setError(null);
-        // Ajusta esta URL si la ruta para el detalle de venta es diferente
-        const response = await fetch(`http://192.168.0.104:4000/api/v1/producto/byId/${id}`);
+        const response = await fetch(`${API_URL}/producto/byId/${id}`);
         if (!response.ok) {
           throw new Error("No se pudo cargar la información del producto.");
         }
@@ -86,126 +108,145 @@ const ProductDetailScreen = () => {
     fetchProductData();
   }, [id]);
 
-  if (loading) {
+  if (loading || error || !product) {
     return (
       <View style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={styles.loadingText}>Cargando detalles...</Text>
+        {loading ? (
+          <>
+            <ActivityIndicator size="large" color="#3B82F6" testID="activity-indicator" />
+            <Text style={styles.loadingText}>Cargando detalles...</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.errorText}>{error || "Producto no encontrado."}</Text>
+            <TouchableOpacity style={styles.button} onPress={() => navigate(-1)}>
+              <Text style={styles.buttonText}>Volver</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     );
   }
 
-  if (error || !product) {
-    return (
-      <View style={styles.centeredContainer}>
-        <Text style={styles.errorText}>{error || "Producto no encontrado."}</Text>
-        <TouchableOpacity style={styles.button} onPress={() => navigate(-1)}>
-          <Text style={styles.buttonText}>Volver</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
+  // --- Contenedor Principal (Flexbox) para el diseño con Sticky Footer ---
   return (
-    <ScrollView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="flex-row items-center p-4">
-        <TouchableOpacity
-          onPress={() => navigate(-1)}
-          className="p-2 rounded-full bg-gray-100 mr-4"
-        >
-          <ArrowLeftIcon size={28} color="#333" />
-        </TouchableOpacity>
-        <Text className="text-xl font-bold">Detalle del Vestido</Text>
-      </View>
-
-      {/* Carrusel */}
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-        {product.imagenes.map((img, index) => (
+    <View className="flex-1 bg-gray-50"> 
+      
+      {/* Contenido Desplazable */}
+      {/* Usamos el paddingBottom del StyleSheet para asegurar espacio para el Footer */}
+      <ScrollView contentContainerStyle={styles.scrollPadding} className="flex-1"> 
+        
+        {/* Carrusel de Imágenes con Header Absoluto */}
+        <View className="relative">
+          {/* Botón de Volver ABSOLUTO */}
           <TouchableOpacity
-            key={index}
-            activeOpacity={0.9}
-            onPress={() => {
-              setStartIndex(index);
-              setViewerVisible(true);
-            }}
+            onPress={() => navigate(-1)}
+            className="absolute top-10 left-4 z-10 p-2 rounded-full bg-white/70 shadow-lg"
           >
-            <Image
-              source={{ uri: img }}
-              style={{ width, height: 400 }}
-              resizeMode="cover"
-            />
+            <ArrowLeftIcon size={28} color="#333" />
           </TouchableOpacity>
-        ))}
-      </ScrollView>
 
-      {/* Info */}
-      <View className="p-4">
-        {/* Nombre y precio */}
-        <View className="flex-row justify-between items-center mb-3">
-          <Text className="text-xl font-bold text-gray-800 flex-1 pr-2">
-            {product.nombre}
-          </Text>
-          <View className="items-end">
-            {product.en_promocion && (
+          {/* Carrusel */}
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+          >
+            {product.imagenes.map((img, index) => (
+              <TouchableOpacity key={index} activeOpacity={0.9}>
+                <Image
+                  source={{ uri: img }}
+                  style={{ width, height: 400 }}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Información del Producto */}
+        <View className="p-4 bg-white rounded-t-xl -mt-4 shadow-xl">
+          
+          {/* Nombre y precio */}
+          <View className="flex-row justify-between items-start mb-3">
+            <Text className="text-2xl font-extrabold text-gray-900 flex-1 pr-4">
+              {product.nombre}
+            </Text>
+            <View className="items-end">
+              {product.en_promocion && (
                 <Text style={styles.oldPrice}>
                   ${product.precioAnterior}
                 </Text>
-            )}
-            <Text style={product.en_promocion ? styles.promoPrice : styles.currentPrice}>
-              ${product.precioActual}
-            </Text>
+              )}
+              <Text style={product.en_promocion ? styles.promoPrice : styles.currentPrice} className="text-3xl">
+                ${product.precioActual}
+              </Text>
+            </View>
           </View>
+
+          {/* Reseñas */}
+          <View className="flex-row items-center mb-4">
+            <StarIcon size={20} color="#fbbf24" />
+            <Text className="ml-1 text-gray-700 font-semibold">
+              {product.rating_promedio}
+            </Text>
+            <Text className="text-gray-500"> ({product.review_count} reseñas)</Text>
+          </View>
+
+          {/* Descripción */}
+          <Text className="text-gray-600 mb-6 leading-6">{product.descripcion}</Text>
+
+          {/* Características CLAVE (Fichas/Chips) */}
+          <Text className="text-lg font-bold text-gray-800 mb-3">Detalles Clave</Text>
+          <View className="flex-row flex-wrap mb-6">
+            <FeatureChip label="Talla" value={product.talla} icon={TagIcon} />
+            <FeatureChip label="Color" value={product.color} icon={SwatchIcon} />
+            <FeatureChip label="Condición" value={product.condicion} icon={CubeIcon} />
+            <FeatureChip label="Estilo" value={product.estilo} icon={CubeIcon} />
+          </View>
+
+          {/* Detalles Completos */}
+          <View className="bg-gray-100 rounded-lg p-4 mb-4">
+              <Text className="text-base font-semibold text-gray-700 mb-2">Más Especificaciones</Text>
+              <Text className="text-gray-600 mb-1">• Tipo de transacción: {product.opcionesTipoTransaccion}</Text>
+              <Text className="text-gray-600 mb-1">• Temporada: {product.temporada.join(", ")}</Text>
+              <Text className="text-gray-600 mb-1">• Cuello: {product.tipoCuello}</Text>
+              <Text className="text-gray-600 mb-1">• Cola: {product.tipoCola}</Text>
+              <Text className="text-gray-600 mb-1">• Hombro: {product.tipoHombro}</Text>
+          </View>
+          
         </View>
+        
+      </ScrollView>
 
-        {/* Reseñas */}
-        <View className="flex-row items-center mb-4">
-          <StarIcon size={20} color="#fbbf24" />
-          <Text className="ml-1 text-gray-700">
-            {product.rating_promedio} ({product.review_count} reseñas)
-          </Text>
-        </View>
-
-        {/* Descripción */}
-        <Text className="text-gray-600 mb-4">{product.descripcion}</Text>
-
-        {/* Características */}
-        <View className="bg-white rounded-lg shadow p-4 mb-6">
-          <Text className="text-lg font-bold text-gray-800 mb-3">Características</Text>
-          <Text className="text-gray-700 mb-1">Talla: {product.talla}</Text>
-          <Text className="text-gray-700 mb-1">Color: {product.color}</Text>
-          <Text className="text-gray-700 mb-1">Tipo de transacción: {product.opcionesTipoTransaccion}</Text>
-          <Text className="text-gray-700 mb-1">Condición: {product.condicion}</Text>
-          <Text className="text-gray-700 mb-1">Estilo: {product.estilo}</Text>
-          <Text className="text-gray-700 mb-1">Temporada: {product.temporada.join(", ")}</Text>
-          <Text className="text-gray-700 mb-1">Cuello: {product.tipoCuello}</Text>
-          <Text className="text-gray-700 mb-1">Cola: {product.tipoCola}</Text>
-          <Text className="text-gray-700 mb-1">Capas: {product.tipoCapas}</Text>
-          <Text className="text-gray-700 mb-1">Hombro: {product.tipoHombro}</Text>
-        </View>
-
-        {/* Botón de acción dinámico */}
+      {/* --- Sticky Footer (Barra de Acción Fija y BLANCA) --- */}
+      {/* CLAVE: bg-white, bottom-0, y pb-12 para compensar la barra de sistema. */}
+      <View className="absolute bottom-0 left-0 right-0 p-4 pt-3 border-t border-gray-200 bg-white shadow-2xl pb-12">
         <TouchableOpacity
-          className={`${product.opcionesTipoTransaccion === 'renta' ? 'bg-blue-600' : 'bg-green-600'} rounded-lg p-4`}
+          className={`${product.opcionesTipoTransaccion === 'renta' ? 'bg-blue-600' : 'bg-green-600'} rounded-xl p-4 flex-row justify-center items-center shadow-lg`}
         >
-          <Text className="text-white text-center font-bold text-lg">
+          {/* Ícono dinámico */}
+          {product.opcionesTipoTransaccion === 'renta' ? (
+            <CalendarIcon size={24} color="white" />
+          ) : (
+            <ShoppingBagIcon size={24} color="white" />
+          )}
+          <Text className="text-white text-center font-bold text-lg ml-3">
             {product.opcionesTipoTransaccion === 'renta' ? 'Rentar Ahora' : 'Comprar Ahora'}
           </Text>
         </TouchableOpacity>
       </View>
-
-      {/* Visor de imágenes */}
-      {/* <ImageViewing */}
-        images={product.imagenes.map((uri) => ({ uri }))}
-        imageIndex={startIndex}
-        visible={isViewerVisible}
-        onRequestClose={() => setViewerVisible(false)}
-      />
-    </ScrollView>
+      {/* --------------------------------------------- */}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Ajuste CLAVE: El padding debe ser suficiente para que el último contenido NO quede
+  // debajo del footer (que ahora es más alto debido al pb-12).
+  scrollPadding: {
+    paddingBottom: 120, 
+  },
   centeredContainer: {
     flex: 1,
     justifyContent: "center",
@@ -234,19 +275,20 @@ const styles = StyleSheet.create({
     color: "white",
     fontWeight: "bold",
   },
+  // Estilos de precios
   oldPrice: {
-    fontSize: 16,
-    color: '#888',
+    fontSize: 18,
+    color: '#9CA3AF',
     textDecorationLine: 'line-through',
   },
   currentPrice: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#3B82F6',
   },
   promoPrice: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: 'extrabold',
     color: '#10B981',
   },
 });

@@ -64,7 +64,7 @@ const Header: React.FC = () => {
                   <Text style={{ color: "white", fontSize: 10, fontWeight: "bold" }}>3</Text>
                 </View>
               </TouchableOpacity>
-              <TouchableOpacity style={{ padding: 8, position: "relative" }}>
+              <TouchableOpacity  onPress={() => navigate("/Orders")} style={{ padding: 8, position: "relative" }}>
                 <ShoppingCartIcon size={26} color="#333" />
                 <View
                   style={{
