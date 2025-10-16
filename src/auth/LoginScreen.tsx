@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, ActivityIndicator, Image } from 'react-native';
 import { useNavigate } from "react-router-native";
 import { EyeIcon, EyeSlashIcon, ArrowLeftIcon, AtSymbolIcon, LockClosedIcon } from "react-native-heroicons/outline";
-// import { AuthService } from '../services/AuthService'; // ← Comentar para modo estático
-// import AsyncStorage from '@react-native-async-storage/async-storage'; // ← Comentar para modo estático
+import { AuthService } from '../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import FadeInView from '~/global/animation/FadeInView';
 
 const LoginScreen: React.FC = () => {
   const navigate = useNavigate();
@@ -49,43 +50,64 @@ const LoginScreen: React.FC = () => {
     setIsLoading(true);
     setErrorMessage('');
 
-    // Modo estático temporal: simula login exitoso
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      console.log("paso aqui")
+      const requestPayload = { email, password };
       navigate('/home');
-    }, 1200);
-    // Si quieres simular error, descomenta:
-    // setTimeout(() => {
-    //   setIsLoading(false);
-    //   setErrorMessage('Credenciales inválidas. Verifica tu correo y contraseña.');
-    // }, 1200);
+
+      // ... resto de tu código de login
+    }
+    catch (error: any) {
+      console.error('Error en el login:', error);
+      const status = error.status;
+      let message = 'Ha ocurrido un error inesperado. Por favor, intenta de nuevo.';
+
+      if (status === 401) message = 'Credenciales inválidas. Verifica tu correo y contraseña.';
+      else if (status === 403) {
+        message = error.error?.message || 'Cuenta bloqueada. Demasiados intentos fallidos.';
+        const tiempoDeBloqueo = error.error?.tiempo;
+        if (tiempoDeBloqueo) startCountdown(tiempoDeBloqueo);
+      } else if (status === 503) message = 'El servicio no está disponible. Por favor, inténtalo de nuevo más tarde.';
+      else if (error.error?.message) message = error.error.message;
+
+      setErrorMessage(message);
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <View className="absolute top-12 left-6 z-10">
+      {/* Botón de retroceso con animación */}
+      <FadeInView delay={100} className="absolute top-12 left-6 z-10">
         <TouchableOpacity onPress={() => navigate(-1)} className="p-2">
           <ArrowLeftIcon size={28} color="#000" />
         </TouchableOpacity>
-      </View>
+      </FadeInView>
 
       <View className="flex-1 items-center justify-center p-6">
-        <View className="w-full max-w-sm aspect-square mb-2">
+        {/* Imagen con animación */}
+        <FadeInView delay={200} className="w-full max-w-sm aspect-square mb-2">
           <Image
             source={{ uri: 'https://res.cloudinary.com/dvvhnrvav/image/upload/v1746397789/shlcavwsffgxemctxdml.png' }}
             className="w-full h-full rounded-3xl"
-            resizeMode="cover"
+            resizeMode="contain"
           />
-        </View>
+        </FadeInView>
 
-        <Text className="text-4xl font-extrabold text-black mb-2 text-center">Inicia Sesión</Text>
-        <Text className="text-base text-gray-500 mb-8 text-center max-w-xs">
-          Ingresa tus datos para acceder a tu cuenta y disfrutar de la aplicación.
-        </Text>
+        {/* Títulos con animación escalonada */}
+        <FadeInView delay={300}>
+          <Text className="text-4xl font-extrabold text-black mb-2 text-center">Inicia Sesión</Text>
+        </FadeInView>
 
-        <View className="w-full space-y-4 mb-4">
+        <FadeInView delay={400}>
+          <Text className="text-base text-gray-500 mb-8 text-center max-w-xs">
+            Ingresa tus datos para acceder a tu cuenta y disfrutar de la aplicación.
+          </Text>
+        </FadeInView>
+
+        {/* Formulario con animación */}
+        <FadeInView delay={500} className="w-full space-y-4 mb-4">
           {/* Email */}
           <View>
             <Text className="text-sm font-medium text-gray-700 mb-1">Correo electrónico</Text>
@@ -121,21 +143,32 @@ const LoginScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </FadeInView>
 
-        {errorMessage ? <Text className="text-red-500 text-sm mb-4">{errorMessage}</Text> : null}
+        {/* Mensaje de error con animación */}
+        {errorMessage ? (
+          <FadeInView duration={500}>
+            <Text className="text-red-500 text-sm mb-4">{errorMessage}</Text>
+          </FadeInView>
+        ) : null}
 
-        <TouchableOpacity className="self-end mb-6">
-          <Text className="text-sm font-medium text-black">¿Olvidaste tu contraseña?</Text>
-        </TouchableOpacity>
+        {/* Botón olvidé contraseña */}
+        <FadeInView delay={600}>
+          <TouchableOpacity className="self-end mb-6">
+            <Text className="text-sm font-medium text-black">¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
+        </FadeInView>
 
-        <TouchableOpacity
-          className={`w-full h-14 bg-black justify-center items-center rounded-lg ${isLoading || isLocked ? 'opacity-50' : ''}`}
-          onPress={handleLogin}
-          disabled={isLoading || isLocked}
-        >
-          {isLoading ? <ActivityIndicator size="small" color="#ffffff" /> : <Text className="text-white text-lg font-bold">{isLocked ? `Bloqueado (${remainingTime}s)` : 'Entrar'}</Text>}
-        </TouchableOpacity>
+        {/* Botón de login */}
+        <FadeInView delay={700} className="w-full">
+          <TouchableOpacity
+            className={`w-full h-14 bg-black justify-center items-center rounded-lg ${isLoading || isLocked ? 'opacity-50' : ''}`}
+            onPress={handleLogin}
+            disabled={isLoading || isLocked}
+          >
+            {isLoading ? <ActivityIndicator size="small" color="#ffffff" /> : <Text className="text-white text-lg font-bold">{isLocked ? `Bloqueado (${remainingTime}s)` : 'Entrar'}</Text>}
+          </TouchableOpacity>
+        </FadeInView>
       </View>
     </SafeAreaView>
   );

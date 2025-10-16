@@ -1,0 +1,52 @@
+appId: com.tuapp.tuproyecto # <<-- REEMPLAZA ESTO: Debe ser tu appId de Expo
+---
+# Flujo: AR003 - Interfaz de login visualmente correcta
+
+- launchApp:
+    # Asegura que la app se lance sin problemas antes de empezar
+    timeout: 5000
+
+# 1. Validación de Presencia de Elementos
+- group: "Verificar la presencia de todos los elementos clave de la interfaz"
+  
+  # Validar el campo de Email por su placeholder
+  - assertVisible: "tu@ejemplo.com"
+  
+  # Validar el campo de Contraseña por su placeholder
+  - assertVisible: "Ingresa tu contraseña"
+  
+  # Validar el botón principal de login (texto 'Entrar')
+  - assertVisible: "Entrar"
+  
+  # Validar el enlace "¿Olvidaste tu contraseña?"
+  - assertVisible: "¿Olvidaste tu contraseña?"
+  
+  # Validar el título principal de la pantalla
+  - assertVisible: "Inicia Sesión"
+
+# 2. Validación de Interacciones (Escribir en los campos)
+- group: "Interactuar con los campos de texto"
+  
+  # Tocar el campo de email (identificado por su placeholder) y escribir un valor
+  - tapOn: "tu@ejemplo.com"
+  - inputText: "test@maestro.com"
+  
+  # Tocar el campo de contraseña y escribir un valor
+  # NOTA: Maestro lo identifica por el texto visible "Ingresa tu contraseña"
+  - tapOn: "Ingresa tu contraseña"
+  - inputText: "micontrasenasegura123"
+
+# 3. Validación de Interacciones (Taps en botones)
+- group: "Interactuar con botones y enlaces"
+  
+  # Tocar el botón 'Entrar'. 
+  # Esto debería disparar handleLogin, que navega a /home.
+  - tapOn: "Entrar"
+  
+  # Opcional: Si el navigate a /home fue exitoso, podríamos verificar un elemento 
+  # en la pantalla 'Home'. Por ahora, solo verificamos que el tap no falle.
+
+# 4. Regresar (opcional)
+# Para continuar con más pruebas en el mismo script si es necesario
+- runFlow:
+    file: retroceder_a_login.yaml # Se asume que /home tiene un botón de logout o retroceso

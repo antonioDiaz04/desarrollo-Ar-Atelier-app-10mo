@@ -88,7 +88,7 @@ const BottomNavBar: React.FC = () => {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => navigate("/cart")}
+          onPress={() => navigate("/ar-viewer")}
           style={{
             alignItems: "center",
             padding: 8,
@@ -97,7 +97,7 @@ const BottomNavBar: React.FC = () => {
           }}
         >
           <ShoppingCartIcon size={24} color={getIconColor("cart")} />
-          <Text style={{ color: getIconColor("cart"), fontSize: 12, marginTop: 2 }}>Carrito</Text>
+          <Text style={{ color: getIconColor("cart"), fontSize: 12, marginTop: 2 }}>probar</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
