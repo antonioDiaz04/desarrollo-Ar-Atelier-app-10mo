@@ -1,28 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { PostCard } from '~/components/PostCard';
-import { Post } from '~/types/types';
 import axios from 'axios';
 import { ArrowLeftIcon } from 'react-native-heroicons/outline';
 import { useNavigate } from "react-router-native";
 
 const API_URL = 'http://192.168.1.2:4000/api/v1/posts';
 
-export const ProfileScreen: React.FC = () => {
+export const LikesScreen: React.FC = () => {
   const navigate = useNavigate();
   const usuariaId = '67daf8baf4ed8050c7b7269a';
 
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [likedPosts, setLikedPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const cargarMisPosts = async () => {
+  const cargarLikes = async () => {
     try {
-      const response = await axios.get<Post[]>(`${API_URL}/aprobados`);
-      const misPosts = response.data.filter(post => post.usuariaId._id === usuariaId);
-      setPosts(misPosts);
+      const response = await axios.get(`${API_URL}/likes/${usuariaId}`);
+      const posts = response.data.map((like: any) => like.postId);
+      setLikedPosts(posts);
     } catch (error) {
-      console.error('Error cargando posts:', error);
+      console.error('Error cargando likes:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -30,12 +29,21 @@ export const ProfileScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    cargarMisPosts();
+    cargarLikes();
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    cargarMisPosts();
+    cargarLikes();
+  };
+
+  const handleUnlike = async (postId: string) => {
+    try {
+      await axios.delete(`${API_URL}/likes`, { data: { postId, usuariaId } });
+      setLikedPosts(prev => prev.filter(p => p._id !== postId));
+    } catch (error) {
+      console.error('Error quitando like:', error);
+    }
   };
 
   if (loading) {
@@ -48,36 +56,37 @@ export const ProfileScreen: React.FC = () => {
 
   return (
     <View className="flex-1 bg-gray-50">
-
-      {/* HEADER con botón regresar */}
-      <View className="bg-white p-6 shadow-sm flex-row items-center">
+      
+      {/* HEADER CON BOTÓN REGRESAR */}
+      <View className="bg-white p-4 shadow-sm flex-row items-center">
         <TouchableOpacity onPress={() => navigate(-1)} className="mr-3">
-          <ArrowLeftIcon size={26} color="#000" />
+          <ArrowLeftIcon size={24} color="#000" />
         </TouchableOpacity>
 
         <View>
-          <Text className="text-2xl font-bold text-gray-900">Mi Perfil</Text>
-          <Text className="text-sm text-gray-600 mt-1">{posts.length} publicaciones</Text>
+          <Text className="text-xl font-bold text-gray-900">Me gusta</Text>
+          <Text className="text-sm text-gray-600">{likedPosts.length} publicaciones</Text>
         </View>
       </View>
 
       {/* LISTA DE POSTS */}
       <FlatList
-        data={posts}
+        data={likedPosts}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <View className="px-4">
             <PostCard 
               post={item}
-              onLike={() => {}} 
-              onSave={() => {}} 
+              isLiked={true}
+              onLike={() => handleUnlike(item._id)}
+              onSave={() => {}}
               onComment={() => {}}
             />
           </View>
         )}
         ListEmptyComponent={
           <View className="flex-1 items-center justify-center py-20">
-            <Text className="text-gray-500 text-lg">No tienes publicaciones aún</Text>
+            <Text className="text-gray-500 text-lg">Aún no has dado me gusta a nada</Text>
           </View>
         }
         refreshControl={

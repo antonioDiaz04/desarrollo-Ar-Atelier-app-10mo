@@ -1,12 +1,19 @@
+// Header.tsx
 import React from "react";
 import { View, Text, TouchableOpacity, SafeAreaView } from "react-native";
-import { Bars3Icon, BellIcon, ShoppingCartIcon, MagnifyingGlassIcon } from "react-native-heroicons/outline";
+import { 
+  Bars3Icon, 
+  HeartIcon,       // Para "Me Gusta"
+  BookmarkIcon,    // Para "Guardados"
+  // Otras opciones si prefieres:
+  // UserIcon,     // Para "Mi Perfil"
+  // ShoppingBagIcon, // Para "Mis Compras"
+} from "react-native-heroicons/outline";
 import { useSidebar } from "./SidebarContext";
 import { useNavigate } from "react-router-native";
 
 const HEADER_HEIGHT = 60;
 
-// Ya no se requiere la prop 'scrollY'
 const Header: React.FC = () => {
   const { toggleSidebar } = useSidebar();
   const navigate = useNavigate();
@@ -20,7 +27,7 @@ const Header: React.FC = () => {
         right: 0,
         zIndex: 10,
         height: HEADER_HEIGHT + 20,
-        backgroundColor: '#FCFBEF', // Color de fondo sólido desde el inicio
+        backgroundColor: '#FFFF',
       }}
     >
       <SafeAreaView style={{ flex: 1 }}>
@@ -42,46 +49,18 @@ const Header: React.FC = () => {
                 Atelier
               </Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <TouchableOpacity onPress={() => navigate("/search")} style={{ padding: 8 }}>
-                <MagnifyingGlassIcon size={26} color="#333" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+              
+              {/* RUTA A ME GUSTA */}
+              <TouchableOpacity onPress={() => navigate("/likes")} style={{ padding: 8 }}>
+                <HeartIcon size={26} color="#EC4899" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => navigate("/Notifications")} style={{ padding: 8, position: "relative" }}>
-                <BellIcon size={26} color="#333" />
-                <View
-                  style={{
-                    position: "absolute",
-                    top: -2,
-                    right: 0,
-                    width: 16,
-                    height: 16,
-                    backgroundColor: "#EC4899",
-                    borderRadius: 8,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "white", fontSize: 10, fontWeight: "bold" }}>3</Text>
-                </View>
+              
+              {/* RUTA A GUARDADOS */}
+              <TouchableOpacity onPress={() => navigate("/saved")} style={{ padding: 8 }}>
+                <BookmarkIcon size={26} color="#3B82F6" />
               </TouchableOpacity>
-              <TouchableOpacity  onPress={() => navigate("/Orders")} style={{ padding: 8, position: "relative" }}>
-                <ShoppingCartIcon size={26} color="#333" />
-                <View
-                  style={{
-                    position: "absolute",
-                    top: -2,
-                    right: 0,
-                    width: 16,
-                    height: 16,
-                    backgroundColor: "#8B5CF6",
-                    borderRadius: 8,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={{ color: "white", fontSize: 10, fontWeight: "bold" }}>1</Text>
-                </View>
-              </TouchableOpacity>
+             
             </View>
           </View>
         </View>

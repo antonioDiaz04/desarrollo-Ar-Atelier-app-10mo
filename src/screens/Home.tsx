@@ -1,482 +1,758 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, Image, Animated, TouchableOpacity, ScrollView, StyleSheet, RefreshControl, Platform } from 'react-native';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import {
+    View,
+    Text,
+    Image,
+    Animated,
+    TouchableOpacity,
+    RefreshControl,
+    Dimensions,
+    FlatList,
+    ActivityIndicator,
+    Linking,
+} from 'react-native';
 import { useNavigate } from 'react-router-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-// ... (otras importaciones) ...
 import Header from '~/components/Header';
 import BottomNavBar from '~/components/BottomNavBar';
-import Sidebar from '~/components/Sidebar';
-import RentalProcessSection from '~/components/RentalProcessSection';
-import { API_URL } from '@env';
+import { BlurView } from "expo-blur";
 
-console.log(API_URL);
+// --- DIMENSIONES Y CONSTANTES ---
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const COLUMN_GAP = 16;
+const CARD_WIDTH = (SCREEN_WIDTH - 48 - COLUMN_GAP) / 2;
+const CARD_MARGIN = 8;
 
-// Definición de tipos y constantes (omitiendo por brevedad)
-
-const HERO_HEIGHT = 350;
-
-// ... (componente Home, estados, funciones showAlert, fetchDresses, onRefresh, animaciones Hero) ...
-
-interface Dress {
+// --- INTERFACES Y DATOS DINÁMICOS ---
+interface ApiPost {
     _id: string;
-    nombre: string;
-    precio_venta: number;
-    precio_renta: number;
-    opcionesTipoTransaccion: 'venta' | 'renta' | string;
-    imagenes: string[];
-    disponible_venta: boolean;
-    disponible_renta: boolean;
-    en_promocion: boolean;
-    precio_promocion: number;
+    usuariaId: {
+        _id: string;
+        nombre: string;
+        fotoDePerfil: string;
+    };
+    imagenUrl: string;
+    descripcion: string;
+    etiqueta: string;
+    aprobado: boolean;
+    fecha: string;
+    __v?: number;
 }
 
-const Home: React.FC = () => {
-    const navigate = useNavigate();
-    const scrollY = useRef(new Animated.Value(0)).current;
-    const errorOpacity = useRef(new Animated.Value(0)).current;
-    const [rentCollection, setRentCollection] = useState<Dress[]>([]);
-    const [salesCollection, setSalesCollection] = useState<Dress[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
+interface Post {
+    _id: string;
+    user_id: string;
+    user_name: string;
+    user_avatar: string;
+    image_url: string;
+    description: string;
+    likes_count: number;
+    comments_count: number;
+    created_at: string;
+    user_has_liked: boolean;
+    user_has_saved: boolean;
+    category?: string;
+    size?: 'small' | 'medium' | 'large' | 'xlarge';
+    aspectRatio?: number;
+    etiqueta?: string;
+}
 
-    const showAlert = (message: string) => {
-        setError(message);
-        Animated.sequence([
-            Animated.timing(errorOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.delay(4000),
-            Animated.timing(errorOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ]).start(() => setError(null));
-    };
+interface Clip {
+    id: string;
+    title: string;
+    user_name: string;
+    user_avatar: string;
+    thumbnail: string;
+    duration: string;
+    views: number;
+    likes: number;
+    is_live?: boolean;
+}
 
-    const fetchDresses = async () => {
+// --- SERVICIO API ---
+const API_BASE_URL = 'http://192.168.1.2:4000/api/v1';
+const apiService = {
+    getApprovedPosts: async (): Promise<ApiPost[]> => {
         try {
-            const response = await fetch(`${API_URL}/vestido`);
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            const data: Dress[] = await response.json();
-            const rentItems = data.filter(dress => dress.opcionesTipoTransaccion === 'renta' || dress.disponible_renta);
-            const salesItems = data.filter(dress => dress.opcionesTipoTransaccion === 'venta' || dress.disponible_venta);
-            setRentCollection(rentItems);
-            setSalesCollection(salesItems);
-        } catch (err) {
-            console.error("Error fetching dresses:", err);
-            showAlert("No se pudieron cargar los vestidos. Inténtalo de nuevo.");
+            const response = await fetch(`${API_BASE_URL}/posts/aprobados`, {
+                cache: "no-store"
+            });
+            if (!response.ok) throw new Error(`Error fetching posts: ${response.status}`);
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching posts:', error);
+            return [];
         }
+    },
+
+    getUnapprovedPosts: async (): Promise<ApiPost[]> => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/no-aprobados`);
+            if (!response.ok) throw new Error('Error fetching unapproved posts');
+            return await response.json();
+        } catch (error) {
+            console.error('Error fetching unapproved posts:', error);
+            return [];
+        }
+    },
+
+    likePost: async (postId: string, usuariaId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/like`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, usuariaId }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error liking post:', error);
+            return false;
+        }
+    },
+
+    unlikePost: async (postId: string, usuariaId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/unlike`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, usuariaId }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error unliking post:', error);
+            return false;
+        }
+    },
+
+    savePost: async (postId: string, usuariaId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/guardar`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, usuariaId }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error saving post:', error);
+            return false;
+        }
+    },
+
+    unsavePost: async (postId: string, usuariaId: string) => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/quitar-guardado`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, usuariaId }),
+            });
+            return response.ok;
+        } catch (error) {
+            console.error('Error unsaving post:', error);
+            return false;
+        }
+    }
+};
+
+// --- FUNCIÓN PARA TRANSFORMAR DATOS DE API ---
+const transformApiPostToAppPost = (apiPost: ApiPost): Post => {
+    const sizes: Array<'small' | 'medium' | 'large' | 'xlarge'> = ['small', 'medium', 'large', 'xlarge'];
+    const randomSize = sizes[Math.floor(Math.random() * sizes.length)];
+    
+    const categoryMap: { [key: string]: string } = {
+        'comprado': 'Purchased',
+        'rentado': 'Rented',
+        'propio': 'Own Style'
     };
+
+    return {
+        _id: apiPost._id,
+        user_id: apiPost.usuariaId._id,
+        user_name: apiPost.usuariaId.nombre,
+        user_avatar: apiPost.usuariaId.fotoDePerfil,
+        image_url: apiPost.imagenUrl,
+        description: apiPost.descripcion,
+        likes_count: Math.floor(Math.random() * 500) + 50,
+        comments_count: Math.floor(Math.random() * 50) + 5,
+        created_at: apiPost.fecha,
+        user_has_liked: false,
+        user_has_saved: false,
+        category: categoryMap[apiPost.etiqueta] || 'Style',
+        size: randomSize,
+        aspectRatio: 0.75 + Math.random() * 0.5,
+        etiqueta: apiPost.etiqueta
+    };
+};
+
+// Datos estáticos para clips
+const staticClips: Clip[] = [
+    {
+        id: 'clip1',
+        title: 'Behind The Scenes SS24',
+        user_name: 'ATELIER Official',
+        user_avatar: 'https://images.unsplash.com/photo-1563089145-599997674d42?w=150&h=150&fit=crop&crop=face',
+        thumbnail: 'https://images.unsplash.com/photo-1445205170230-053b83016050?w=400&h=600&fit=crop',
+        duration: '2:45',
+        views: 15234,
+        likes: 2341,
+        is_live: false
+    },
+    {
+        id: 'clip2',
+        title: 'Model Diaries: Backstage',
+        user_name: 'Fashion Week',
+        user_avatar: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=150&h=150&fit=crop&crop=face',
+        thumbnail: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400&h=600&fit=crop',
+        duration: '1:23',
+        views: 8921,
+        likes: 1567,
+        is_live: true
+    }
+];
+
+// --- COMPONENTE HERO SECTION ---
+const HeroSection = () => {
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const scaleAnim = useRef(new Animated.Value(1.1)).current;
+    const textSlideAnim = useRef(new Animated.Value(80)).current;
 
     useEffect(() => {
-        const initialLoad = async () => {
-            setLoading(true);
-            await fetchDresses();
-            setLoading(false);
-        };
-        initialLoad();
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 1500,
+                useNativeDriver: true
+            }),
+            Animated.timing(scaleAnim, {
+                toValue: 1,
+                duration: 2000,
+                useNativeDriver: true
+            }),
+            Animated.timing(textSlideAnim, {
+                toValue: 0,
+                duration: 1200,
+                delay: 600,
+                useNativeDriver: true
+            })
+        ]).start();
     }, []);
 
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await fetchDresses();
-        setRefreshing(false);
-    };
-
-    const itemCardShadowStyle = {
-        shadowColor: '#888888',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 3,
-        elevation: 3,
-    };
-    const reviews = [
-        { id: 'rev1', text: 'El vestido de mis sueños para mi evento. ¡Gracias, Atelier!', author: 'Sofía M.' },
-        { id: 'rev2', text: 'Excelente servicio de renta y ajustes perfectos.', author: 'Isabella P.' },
-        { id: 'rev3', text: 'Calidad superior y atención al detalle. 100% recomendado.', author: 'Valeria R.' },
-    ];
-
-    // Animaciones Hero (omitidas por brevedad)
-    const circle1Transform = [
-        { translateY: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [0, 40], extrapolate: 'clamp' }) },
-        { rotate: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: ['0deg', '45deg'], extrapolate: 'clamp' }) },
-        { scale: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [1, 0.8], extrapolate: 'clamp' }) }
-    ];
-    const circle2Transform = [
-        { translateY: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [0, -20], extrapolate: 'clamp' }) },
-        { rotate: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: ['0deg', '-30deg'], extrapolate: 'clamp' }) },
-        { scale: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [1, 0.9], extrapolate: 'clamp' }) }
-    ];
-    const circle3Transform = [
-        { translateY: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [0, 60], extrapolate: 'clamp' }) },
-        { rotate: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: ['0deg', '60deg'], extrapolate: 'clamp' }) },
-        { scale: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [1, 0.7], extrapolate: 'clamp' }) }
-    ];
-    const circle4Transform = [
-        { translateY: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [0, -30], extrapolate: 'clamp' }) },
-        { rotate: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: ['0deg', '-15deg'], extrapolate: 'clamp' }) },
-        { scale: scrollY.interpolate({ inputRange: [0, HERO_HEIGHT], outputRange: [1, 0.95], extrapolate: 'clamp' }) }
-    ];
-
     return (
-        <View style={{ flex: 1, backgroundColor: '#FFF' }}>
-            <Header />
-
-            {/* Alerta de error flotante */}
-            {error && (
-                <Animated.View style={[styles.errorAlert, { opacity: errorOpacity }]}>
-                    <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity onPress={() => setError(null)} style={styles.closeButton}>
-                        <Feather name="x-circle" size={24} color="white" />
-                    </TouchableOpacity>
-                </Animated.View>
-            )}
-
-            <Animated.ScrollView
-                className="flex-1"
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                    { useNativeDriver: true }
-                )}
-                scrollEventThrottle={16}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        tintColor="#000"
-                        colors={['#000']}
-                    />
-                }
+        // CAMBIOS CLAVE: Reduje de h-screen a h-[70vh] y añadí my-12 para margen vertical
+        <View className="h-[50vh] flex-row bg-white mt-12 mx-0 rounded-2xl overflow-hidden">
+            {/* Contenedor del texto a la izquierda */}
+            <Animated.View 
+                style={[
+                    {
+                        opacity: fadeAnim,
+                        transform: [{ translateY: textSlideAnim }]
+                    }
+                ]} 
+                className="flex-1 justify-center px-8" // Reduje el padding horizontal de px-10 a px-8
             >
-                {/* HERO SECTION (Mantenido) */}
-                <View style={{ height: HERO_HEIGHT }}>
-                    <LinearGradient
-                        colors={['#FCFBEF', '#FFF']}
-                        locations={[0.5, 1]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 0, y: 1 }}
-                        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-                    />
-                    {/* Círculos animados... */}
-                    <Animated.View style={{ position: 'absolute', top: -20, left: -20, width: 80, height: 80, borderRadius: 40, backgroundColor: '#dfdacf', opacity: 0.2, transform: circle1Transform, }} />
-                    <Animated.View style={{ position: 'absolute', top: -20, right: -20, width: 60, height: 60, borderRadius: 30, backgroundColor: '#dfdacf', opacity: 0.2, transform: circle2Transform, }} />
-                    <Animated.View style={{ position: 'absolute', bottom: -20, left: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: '#dfdacf', opacity: 0.2, transform: circle3Transform, }} />
-                    <Animated.View style={{ position: 'absolute', bottom: -20, right: -20, width: 70, height: 70, borderRadius: 35, backgroundColor: '#cdccbc', opacity: 0.2, transform: circle4Transform, }} />
+                <Text className="text-black text-5xl font-light tracking-widest mb-5">
+                    ATELIER
+                </Text>
+                
+                <Text className="text-gray-800 text-2xl font-light tracking-widest mb-3">
+                    venta y renta de vestidos
+                </Text>
+                
+                <Text className="text-gray-600 text-sm font-light tracking-wider">
+                    La esencia de la elegancia moderna
+                </Text>
+            </Animated.View>
 
-                    <View
-                        className="flex-1 flex-row items-center justify-between px-6"
-                        style={{ paddingTop: 40 }}
-                    >
-                        <View className="flex-1 z-10 pr-4">
-                            <Text className="text-5xl font-serif tracking-widest text-gray-900 mb-3">
-                                Atelier
-                            </Text>
-                            <Text className="text-xl italic text-gray-700 font-light mb-6">
-                                Renta y venta de vestidos exclusivos
-                            </Text>
-
-                            <TouchableOpacity className="bg-gray-900 p-3 rounded-full shadow-md self-start mb-6">
-                                <Text className="text-white text-base font-semibold uppercase tracking-wide">Explorar colección
-                                </Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <View className="flex-1 items-end z-10">
-                            <Image
-                                source={{ uri: 'https://res.cloudinary.com/dvvhnrvav/image/upload/v1746397789/shlcavwsffgxemctxdml.png' }}
-                                style={styles.heroImage}
-                                resizeMode="cover"
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                {/* --- */}
-
-                {/* === SECCIÓN COLECCIÓN EN RENTA (TARJETA CONTENEDORA con overflow visible) === */}
-                <View style={styles.mainCardStyle}>
-                    {/* El header mantiene el padding para alinear el texto dentro de la tarjeta */}
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Colección en Renta</Text>
-                        <TouchableOpacity onPress={() => navigate('/rent-collection')} style={styles.viewMoreButton}>
-                            <Text style={styles.viewMoreText}>Ver más</Text>
-                            <Feather name="chevron-right" size={18} color="#333333" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* El ScrollView ocupa todo el ancho, pero los márgenes se controlan en los ítems */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollViewNoPadding}>
-                        {loading && rentCollection.length === 0 ? (
-                            <Text style={styles.loadingText}>Cargando...</Text>
-                        ) : (
-                            rentCollection.map((dress, index) => (
-                                <TouchableOpacity
-                                    key={dress._id}
-                                    // Se aplica el margen inicial solo al primer ítem (para alineación)
-                                    style={[itemCardShadowStyle, styles.productCardContainer, index === 0 && styles.firstItemMargin]}
-                                    onPress={() => navigate(`/product/${dress._id}`)}
-                                >
-                                    <Image source={{ uri: dress.imagenes[0] }} style={styles.cardImage} />
-                                    <Text style={styles.cardTitle} numberOfLines={2}>{dress.nombre}</Text>
-                                    <Text style={styles.cardPrice}>${dress.precio_renta} / día</Text>
-                                </TouchableOpacity>
-                            ))
-                        )}
-                    </ScrollView>
-                </View>
-
-                {/* --- */}
-
-                {/* === SECCIÓN COLECCIÓN EN VENTA (TARJETA CONTENEDORA con overflow visible) === */}
-                <View style={styles.mainCardStyle}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Colección en Venta</Text>
-                        <TouchableOpacity onPress={() => navigate('/sales-collection')} style={styles.viewMoreButton}>
-                            <Text style={styles.viewMoreText}>Ver más</Text>
-                            <Feather name="chevron-right" size={18} color="#333333" />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollViewNoPadding}>
-                        {loading && salesCollection.length === 0 ? (
-                            <Text style={styles.loadingText}>Cargando...</Text>
-                        ) : (
-                            salesCollection.map((dress, index) => (
-                                <TouchableOpacity
-                                    key={dress._id}
-                                    style={[itemCardShadowStyle, styles.productCardContainer, index === 0 && styles.firstItemMargin]}
-                                    onPress={() => navigate(`/sales/${dress._id}`)}
-                                >
-                                    <Image source={{ uri: dress.imagenes[0] }} style={styles.cardImage} />
-                                    <Text style={styles.cardTitle} numberOfLines={2}>{dress.nombre}</Text>
-                                    <Text style={styles.cardPrice}>${dress.en_promocion ? dress.precio_promocion : dress.precio_venta}</Text>
-                                </TouchableOpacity>
-                            ))
-                        )}
-                    </ScrollView>
-                </View>
-
-                {/* --- */}
-
-                <RentalProcessSection />
-
-                {/* --- */}
-
-
-
-                {/* --- */}
-
-                {/* === SECCIÓN REVIEWS (TARJETA CONTENEDORA con overflow visible) === */}
-                <View style={styles.mainCardStyle}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Lo que dicen de nosotros</Text>
-                        <TouchableOpacity onPress={() => navigate('/sales-collection')} style={styles.viewMoreButton}>
-                            <Text style={styles.viewMoreText}>Ver más</Text>
-                            <Feather name="chevron-right" size={18} color="#333333" />
-                        </TouchableOpacity>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollViewNoPadding}>
-                        {reviews.map((review, index) => (
-                            <View key={review.id} style={[styles.reviewCard, index === 0 && styles.firstItemMargin]}>
-                                <Text style={styles.reviewText}>"{review.text}"</Text>
-                                <Text style={styles.reviewAuthor}>- {review.author}</Text>
-                            </View>
-                        ))}
-                    </ScrollView>
-                </View>
-
-                {/* Espacio final */}
-                <View style={{ height: 100 }} />
-
-            </Animated.ScrollView>
-            <BottomNavBar />
-            <Sidebar />
+            {/* Contenedor de la imagen a la derecha */}
+            <View className="flex-1 relative">
+                {/* CAMBIO CLAVE: La imagen ahora tiene h-[90%] y rounded-lg para no ocupar todo */}
+                <Animated.Image
+                    source={{ uri: 'https://res.cloudinary.com/dvvhnrvav/image/upload/v1746397789/shlcavwsffgxemctxdml.png' }}
+                    style={[
+                        {
+                            opacity: fadeAnim,
+                            transform: [{ scale: scaleAnim }]
+                        }
+                    ]}
+                    className="w-full h-[90%] rounded-lg self-center" // Añadí self-center y h-[90%]
+                    resizeMode="cover"
+                />
+            </View>
         </View>
     );
 };
 
-const styles = StyleSheet.create({
-    // ------------------------------------------
-    // ESTILOS CLAVE PARA EL EFECTO: TARJETA + SCROLL DESBORDANTE
-    // ------------------------------------------
-    mainCardStyle: {
-        // Define la tarjeta (card) con el fondo, sombra y margen exterior
-        backgroundColor: '#ffffff',
-        borderRadius: 12,
-        marginHorizontal: 16, // Margen exterior que define el ancho de la "tarjeta"
-        marginBottom: 24, // Espacio entre cards
-        paddingTop: 16,
-        paddingBottom: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
-        // CLAVE: Usa 'visible' en iOS para que los elementos del carrusel sobresalgan.
-        // En Android, esto puede no funcionar, por lo que el enfoque anterior (tarjeta rota) es más seguro.
-        overflow: Platform.OS === 'ios' ? 'visible' : 'hidden',
-    },
-    scrollViewNoPadding: {
-        // El ScrollView no tiene padding horizontal, permitiendo que sus hijos se desborden
-        paddingVertical: 8,
-        // Importante: en el caso de Android, si 'overflow: hidden' está en el padre, este margen negativo
-        // puede ayudar a que los ítems se vean un poco más grandes, aunque no desborden completamente.
-        marginHorizontal: Platform.OS === 'android' ? -16 : 0,
-    },
-    firstItemMargin: {
-        // Compensación para que el primer elemento se alinee con el margen del texto.
-        marginLeft: 16,
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 16,
-        paddingHorizontal: 16, // <-- Mantiene el padding del texto DENTRO del card
-    },
-    sectionTitleHeaderPadding: {
-        paddingHorizontal: 16,
-        marginBottom: 16,
-    },
-    // ------------------------------------------
-    // ESTILOS GENERALES (Mantenidos)
-    // ------------------------------------------
-    sectionContainer: {
-        marginBottom: 32,
-        marginTop: 16,
-    },
-    sectionTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#222222',
-    },
-    sectionTitlePadded: {
-        paddingHorizontal: 16,
-        marginBottom: 16,
-        textAlign: 'center',
-    },
-    productCardContainer: {
-        backgroundColor: '#ffffff',
-        borderRadius: 8,
-        marginRight: 16,
-        width: 176,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 0.5,
-        borderColor: '#DDDDDD',
-        padding: 8,
-    },
-    serviceCard: {
-        backgroundColor: '#e5e7eb',
-        borderRadius: 8,
-        marginRight: 16,
-        padding: 16,
-        width: 160,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    reviewCard: {
-        backgroundColor: '#f9f9f9',
-        borderRadius: 8,
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 3,
-        elevation: 2,
-        marginRight: 16,
-        padding: 16,
-        width: 288,
-    },
-    cardImage: {
-        width: 160,
-        height: 160,
-        borderRadius: 8,
-        marginBottom: 8,
-    },
-    // ... (resto de los estilos de tipografía, botones, hero, etc.)
-    viewMoreButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    viewMoreText: {
-        color: '#333333',
-        fontWeight: '600',
-        marginRight: 4,
-    },
-    cardTitle: {
-        fontWeight: '600',
-        color: '#333333',
-        textAlign: 'center',
-    },
-    cardPrice: {
-        color: '#333333',
-        fontWeight: 'bold',
-        marginTop: 4,
-        fontSize: 16,
-    },
-    serviceImage: {
-        width: 64,
-        height: 64,
-        borderRadius: 32,
-        marginBottom: 8,
-    },
-    serviceText: {
-        fontWeight: '600',
-        textAlign: 'center',
-        color: '#333333',
-    },
-    reviewText: {
-        color: '#333333',
-        fontStyle: 'italic',
-        marginBottom: 8,
-    },
-    reviewAuthor: {
-        fontWeight: 'bold',
-        color: '#333333',
-        textAlign: 'right',
-    },
-    heroImage: {
-        width: 208,
-        height: 250,
-        borderRadius: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-    },
-    errorText: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        flex: 1,
-    },
-    errorAlert: {
-        position: 'absolute',
-        top: 50,
-        left: 20,
-        right: 20,
-        backgroundColor: '#ff6347',
-        borderRadius: 8,
-        padding: 16,
-        zIndex: 10,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        elevation: 5,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-    },
-    closeButton: {
-        marginLeft: 10,
-    },
-    loadingText: {
-        textAlign: 'center',
-        width: '100%',
-        fontSize: 16,
-        color: '#888',
-        marginTop: 20,
-    },
-});
+// --- COMPONENTE POST CARD - 2 COLUMNAS, IMÁGENES COMPLETAS ---
+const PostCard: React.FC<{
+    post: Post;
+    onLike: (id: string) => void;
+    onSave: (id: string) => void;
+    onComment: (id: string) => void;
+    onShare: (id: string) => void;
+    onProfilePress: (userId: string) => void;
+}> = ({ post, onLike, onSave, onComment, onShare, onProfilePress }) => {
+    const [isLiked, setIsLiked] = useState(post.user_has_liked);
+    const [isSaved, setIsSaved] = useState(post.user_has_saved);
+    const [isDoubleTap, setIsDoubleTap] = useState(false);
+    const [imageHeight, setImageHeight] = useState(CARD_WIDTH * 1.2); // Altura inicial estándar
+    const lastTapRef = useRef<number | null>(null);
+
+    // Función de fecha ultra compacta
+    const getTimeAgo = () => {
+        const diff = Math.floor((Date.now() - new Date(post.created_at).getTime()) / 1000);
+        if (diff < 60) return 'ahora';
+        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+        return `${Math.floor(diff / 604800)} sem`;
+    };
+
+    const handleLike = async () => {
+        setIsLiked(!isLiked);
+        await onLike(post._id);
+    };
+
+    const handleSave = async () => {
+        setIsSaved(!isSaved);
+        await onSave(post._id);
+    };
+
+    const handleDoubleTap = () => {
+        const now = Date.now();
+        if (lastTapRef.current && (now - lastTapRef.current) < 500) {
+            setIsDoubleTap(true);
+            if (!isLiked) handleLike();
+            setTimeout(() => setIsDoubleTap(false), 600);
+        }
+        lastTapRef.current = now;
+    };
+
+    // Calcular altura real de la imagen cuando carga
+    const handleImageLoad = (event: any) => {
+        const { width, height } = event.nativeEvent.source;
+        if (width && height) {
+            const aspectRatio = height / width;
+            setImageHeight(CARD_WIDTH * aspectRatio);
+        }
+    };
+
+    return (
+        <View style={{ 
+            width: CARD_WIDTH, 
+            marginBottom: 16, 
+            backgroundColor: '#FFFFFF', 
+            borderRadius: 16, 
+            overflow: 'hidden',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            elevation: 4,
+        }}>
+            
+            {/* HEADER COMPACTO */}
+            <View className="flex-row items-center justify-between p-3 pb-2">
+                <TouchableOpacity onPress={() => onProfilePress(post.user_id)} className="flex-row items-center flex-1">
+                    <Image source={{ uri: post.user_avatar }} className="w-6 h-6 rounded-full bg-gray-200" />
+                    <View className="ml-2 flex-1">
+                        <Text className="text-[10px] font-semibold text-gray-900" numberOfLines={1}>
+                            {post.user_name}
+                        </Text>
+                        <View className="flex-row items-center gap-1 mt-0.5">
+                            {post.category && (
+                                <Text className="text-[8px] text-gray-500 uppercase tracking-wider">
+                                    {post.category}
+                                </Text>
+                            )}
+                            <Text className="text-[8px] text-gray-400">• {getTimeAgo()}</Text>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+                <TouchableOpacity className="p-1">
+                    <Feather name="more-horizontal" size={13} color="#9CA3AF" />
+                </TouchableOpacity>
+            </View>
+
+            {/* IMAGEN COMPLETA SIN RECORTES */}
+            <TouchableOpacity activeOpacity={1} onPress={handleDoubleTap}>
+                <View className="relative">
+                    <Image
+                        source={{ uri: post.image_url }}
+                        style={{ height: imageHeight, width: CARD_WIDTH }}
+                        className="bg-gray-100"
+                        resizeMode="contain"
+                        onLoad={handleImageLoad}
+                    />
+
+                    {/* Animación doble tap */}
+                    {isDoubleTap && (
+                        <View className="absolute inset-0 items-center justify-center">
+                            <Feather name="heart" size={40} color="#EF4444" />
+                        </View>
+                    )}
+
+                    {/* Actions overlay compacto */}
+                    <BlurView intensity={20} tint="dark" className="absolute bottom-2 right-2 rounded-full overflow-hidden">
+                        <View className="flex-row bg-white/15 p-1 gap-0.5">
+                            <TouchableOpacity onPress={handleLike} className="p-1.5">
+                                <Feather name="heart" size={11} color={isLiked ? "#EF4444" : "#FFFFFF"} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => onComment(post._id)} className="p-1.5">
+                                <Feather name="message-circle" size={11} color="#FFFFFF" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => onShare(post._id)} className="p-1.5">
+                                <Feather name="send" size={11} color="#FFFFFF" />
+                            </TouchableOpacity>
+                        </View>
+                    </BlurView>
+                </View>
+            </TouchableOpacity>
+
+            {/* INFO COMPACTA */}
+            <View className="p-3 pt-2">
+                <Text className="text-[10px] font-semibold text-gray-900 mb-1">
+                    {post.likes_count + (isLiked ? 1 : 0)} me gusta
+                </Text>
+                
+                {post.description && (
+                    <Text className="text-[10px] text-gray-700 leading-3.5" numberOfLines={2}>
+                        <Text className="font-semibold">{post.user_name} </Text>
+                        {post.description}
+                    </Text>
+                )}
+                
+                {post.comments_count > 0 && (
+                    <TouchableOpacity onPress={() => onComment(post._id)} className="mt-1">
+                        <Text className="text-[9px] text-gray-500">
+                            Ver {post.comments_count} comentarios
+                        </Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+        </View>
+    );
+};
+
+// --- COMPONENTE PROMO CARD - SITIO WEB ---
+const PromoCard: React.FC = () => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      tension: 300,
+      friction: 20,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleVisitWebsite = () => {
+    Linking.openURL('https://proyecto-atr.vercel.app/').catch(err => 
+      console.error('Error al abrir URL:', err)
+    );
+  };
+
+  return (
+    <Animated.View 
+      style={{
+        opacity: fadeAnim,
+        transform: [{ scale: scaleAnim }],
+      }}
+      className="mx-5"
+    >
+      <TouchableOpacity
+        activeOpacity={0.95}
+        onPress={handleVisitWebsite}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+      >
+        <View
+          className="bg-white rounded-2xl overflow-hidden"
+          style={{
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.12,
+            shadowRadius: 16,
+            elevation: 6,
+            borderWidth: 1,
+            borderColor: '#f3f4f6',
+          }}
+        >
+          <View className="flex-row items-center justify-between p-5">
+            {/* Contenido */}
+            <View className="flex-1 pr-4">
+              <Text className="text-gray-900 text-xs font-semibold tracking-wider mb-1.5">
+                EXPLORA MÁS
+              </Text>
+              
+              <Text className="text-gray-900 text-lg font-bold mb-1.5">
+                Descubre looks en nuestro sitio
+              </Text>
+              
+              <Text className="text-gray-600 text-sm font-light mb-4">
+                Encuentra tu estilo perfecto en la colección completa
+              </Text>
+
+              <View className="flex-row items-center gap-3">
+                <View className="flex-row items-center gap-1.5">
+                  <Feather name="external-link" size={14} color="#000000" />
+                  <Text className="text-gray-900 text-xs font-medium">
+                    Visitar sitio web
+                  </Text>
+                </View>
+                
+                <View className="w-px h-4 bg-gray-300" />
+                
+                <View className="bg-gray-900 px-2.5 py-1 rounded-full">
+                  <Text className="text-white text-xs font-semibold">
+                    Colección 2024
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Preview del sitio web */}
+            <View className="relative">
+              <Image
+                source={{ uri: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=300&h=250&fit=crop" }}
+                className="w-20 h-16 rounded-lg"
+                resizeMode="cover"
+              />
+              <View className="absolute bottom-1 right-1 bg-gray-900/80 rounded-full p-1.5">
+                <Feather name="external-link" size={10} color="#FFFFFF" />
+              </View>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+
+// --- ALGORITMO DE MAMPOSTERÍA ---
+const MasonryLayout = ({ posts, onLike, onSave }: { posts: Post[]; onLike: (id: string) => void; onSave: (id: string) => void }) => {
+    const [columns, setColumns] = useState<Post[][]>([[], []]);
+
+    useEffect(() => {
+        const distributePosts = () => {
+            const leftColumn: Post[] = [];
+            const rightColumn: Post[] = [];
+            let leftHeight = 0;
+            let rightHeight = 0;
+
+            posts.forEach((post) => {
+                const postHeight = getPostHeight(post);
+
+                if (leftHeight <= rightHeight) {
+                    leftColumn.push(post);
+                    leftHeight += postHeight + CARD_MARGIN * 2;
+                } else {
+                    rightColumn.push(post);
+                    rightHeight += postHeight + CARD_MARGIN * 2;
+                }
+            });
+
+            setColumns([leftColumn, rightColumn]);
+        };
+
+        distributePosts();
+    }, [posts]);
+
+    const getPostHeight = (post: Post) => {
+        const baseHeight = CARD_WIDTH;
+        switch (post.size) {
+            case 'small': return baseHeight * 0.8;
+            case 'medium': return baseHeight * 1.1;
+            case 'large': return baseHeight * 1.4;
+            case 'xlarge': return baseHeight * 1.7;
+            default: return baseHeight;
+        }
+    };
+
+    return (
+        <View className="flex-row justify-between px-5 pt-2">
+            {columns.map((column, columnIndex) => (
+                <View key={columnIndex} className="flex-1 mx-1">
+                    {column.map((post) => (
+                        <PostCard
+                            key={post._id}
+                            post={post}
+                            onLike={onLike}
+                            onSave={onSave}
+                        />
+                    ))}
+                </View>
+            ))}
+        </View>
+    );
+};
+
+// --- COMPONENTE PRINCIPAL ---
+const Home: React.FC = () => {
+    const navigate = typeof useNavigate === 'function' ? useNavigate() : (path: string) => console.log('Navigate to:', path);
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [refreshing, setRefreshing] = useState<boolean>(false);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const currentUserId = '67daf51df4ed8050c7b72619';
+
+    const fetchAllData = async () => {
+        try {
+            setError(null);
+            setLoading(true);
+            const apiPosts = await apiService.getApprovedPosts();
+            const transformedPosts = apiPosts.map(transformApiPostToAppPost);
+            setPosts(transformedPosts);
+        } catch (err) {
+            setError('Error al cargar los posts');
+            console.error('Error fetching data:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchAllData();
+    }, []);
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await fetchAllData();
+        setRefreshing(false);
+    }, []);
+
+    const handleLikePost = useCallback(async (postId: string) => {
+        const post = posts.find(p => p._id === postId);
+        if (!post) return;
+
+        const success = post.user_has_liked
+            ? await apiService.unlikePost(postId, currentUserId)
+            : await apiService.likePost(postId, currentUserId);
+
+        if (success) {
+            setPosts(prev => prev.map(p =>
+                p._id === postId ? {
+                    ...p,
+                    user_has_liked: !p.user_has_liked,
+                    likes_count: p.user_has_liked ? p.likes_count - 1 : p.likes_count + 1
+                } : p
+            ));
+        }
+    }, [posts, currentUserId]);
+
+    const handleSavePost = useCallback(async (postId: string) => {
+        const post = posts.find(p => p._id === postId);
+        if (!post) return;
+
+        const success = post.user_has_saved
+            ? await apiService.unsavePost(postId, currentUserId)
+            : await apiService.savePost(postId, currentUserId);
+
+        if (success) {
+            setPosts(prev => prev.map(p =>
+                p._id === postId ? { ...p, user_has_saved: !p.user_has_saved } : p
+            ));
+        }
+    }, [posts, currentUserId]);
+
+    const ListHeader = () => (
+        <>
+            <HeroSection />
+             <PromoCard />
+            <MasonryLayout
+                posts={posts}
+                onLike={handleLikePost}
+                onSave={handleSavePost}
+            />
+        </>
+    );
+
+    if (loading) {
+        return (
+            <View className="flex-1 bg-white">
+                <Header />
+                <View className="flex-1 justify-center items-center">
+                    <ActivityIndicator size="large" color="#8B4513" />
+                    <Text className="mt-4 text-gray-500 text-base">Cargando contenido...</Text>
+                </View>
+                <BottomNavBar />
+            </View>
+        );
+    }
+
+    if (error) {
+        return (
+            <View className="flex-1 bg-white">
+                <Header />
+                <View className="flex-1 justify-center items-center p-10">
+                    <Text className="text-gray-500 text-base text-center mb-5">{error}</Text>
+                    <TouchableOpacity 
+                        onPress={fetchAllData}
+                        className="bg-[#8B4513] px-6 py-3 rounded-lg"
+                    >
+                        <Text className="text-white text-base font-semibold">Reintentar</Text>
+                    </TouchableOpacity>
+                </View>
+                <BottomNavBar />
+            </View>
+        );
+    }
+
+    return (
+        <View className="flex-1 bg-white">
+            <Header />
+
+            <FlatList
+                data={[1]}
+                keyExtractor={(item, index) => String(index)}
+                renderItem={() => null}
+                ListHeaderComponent={ListHeader}
+                ListFooterComponent={<View className="h-32" />
+                }
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor="#8B4513"
+                    />
+                    
+                }
+                contentContainerStyle={{ paddingBottom: 120 }}
+                showsVerticalScrollIndicator={false}
+            />
+         
+
+            <BottomNavBar />
+        </View>
+    );
+};
 
 export default Home;

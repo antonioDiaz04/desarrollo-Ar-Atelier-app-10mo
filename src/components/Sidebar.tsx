@@ -1,264 +1,232 @@
-import React, { useRef, useEffect, useState } from "react";
-import { View, Text, Animated, TouchableWithoutFeedback, Dimensions, SafeAreaView, TouchableOpacity, Image, ScrollView } from "react-native";
-import { useSidebar } from "./SidebarContext";
-import {
-    HomeIcon,
-    StarIcon,
-    HeartIcon,
-    ShoppingCartIcon,
-    UserIcon,
-    TruckIcon,
-    CreditCardIcon,
-    QuestionMarkCircleIcon,
-    ArrowRightOnRectangleIcon,
-    ChevronDownIcon,
-    ChevronUpIcon,
-    ShoppingBagIcon,
-    TagIcon,
-    InformationCircleIcon, BuildingStorefrontIcon
-} from "react-native-heroicons/outline";
-import { ArrowRightOnRectangleIcon as ArrowRightOnRectangleIconSolid } from "react-native-heroicons/solid";
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigate } from "react-router-native";
-const { width } = Dimensions.get("window");
+import React, { useRef, useEffect, useState } from 'react';
+import { 
+    View, 
+    Text, 
+    Animated, 
+    TouchableWithoutFeedback, 
+    Dimensions, 
+    SafeAreaView, 
+    TouchableOpacity, 
+    Image, 
+    ScrollView,
+    StyleSheet
+} from 'react-native';
+import { useSidebar } from './SidebarContext'; // Asumo que este hook existe en tu proyecto
+import { Feather } from '@expo/vector-icons'; // Usamos Feather para consistencia
+import { useNavigate } from 'react-router-native';
+
+const { width } = Dimensions.get('window');
+
+// --- Paleta de Colores y Estilos ---
+const COLORS = {
+    background: '#FFFFFF',
+    textPrimary: '#121212',
+    textSecondary: '#6C6C6C',
+    border: '#EAEAEA',
+    accent: '#FF3B30',
+};
 
 const Sidebar: React.FC = () => {
     const { isSidebarOpen, toggleSidebar } = useSidebar();
-    const slideX = useRef(new Animated.Value(-width * 0.75)).current;
+    const slideX = useRef(new Animated.Value(-width * 0.8)).current;
     const backdropOpacity = useRef(new Animated.Value(0)).current;
-    const [isCategoriesExpanded, setIsCategoriesExpanded] = useState(false);
     const [user, setUser] = useState<{ nombre: string; email: string; fotoDePerfil: string } | null>(null);
     const navigate = useNavigate();
+
+    // Simulación de carga de usuario (reemplaza con tu lógica real)
     useEffect(() => {
-        const loadUser = async () => {
-            // const userData = await AsyncStorage.getItem('user');
-            // if (userData) setUser(JSON.parse(userData));
-        };
-        loadUser();
+        setUser({
+            nombre: 'Usuario Demo',
+            email: 'demo@email.com',
+            fotoDePerfil: 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png'
+        });
     }, []);
 
-
-
-
     useEffect(() => {
-        if (isSidebarOpen) {
-            Animated.parallel([
-                Animated.timing(slideX, {
-                    toValue: 0,
-                    duration: 300,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(backdropOpacity, {
-                    toValue: 1,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        } else {
-            Animated.parallel([
-                Animated.timing(slideX, {
-                    toValue: -width * 0.75,
-                    duration: 250,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(backdropOpacity, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: true,
-                }),
-            ]).start();
-        }
+        const toValue = isSidebarOpen ? 0 : -width * 0.8;
+        Animated.parallel([
+            Animated.timing(slideX, {
+                toValue,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+            Animated.timing(backdropOpacity, {
+                toValue: isSidebarOpen ? 1 : 0,
+                duration: 300,
+                useNativeDriver: true,
+            }),
+        ]).start();
     }, [isSidebarOpen]);
 
-    const handleLogout = async () => {
-
-        toggleSidebar(); // Cierra el sidebar
-        try {
-            // await AsyncStorage.removeItem('user');
-            // await AsyncStorage.removeItem('token');
-            navigate('/login'); // Redirige a la pantalla de login
-        } catch (error) {
-            console.error("Error cerrando sesión:", error);
-        }
+    const handleNavigation = (path: string) => {
+        toggleSidebar();
+        navigate(path);
     };
-    const darkTextColor = "#4A433D";
-    const lightHeaderColor = "#FCFBEF";
 
-    const navItems = [
-        { label: "Inicio", icon: <HomeIcon size={20} color={darkTextColor} />, path: "/home" },
-        { label: "Nuevos Productos", icon: <StarIcon size={20} color={darkTextColor} />, path: "/new-arrivals" },
-        { label: "Ofertas", icon: <TagIcon size={20} color={darkTextColor} />, path: "/offers" },
+    const handleLogout = () => {
+        toggleSidebar();
+        console.log("Cerrando sesión...");
+        navigate('/login');
+    };
+
+    // --- Definición de los items del menú ---
+    const activityItems = [
+        { label: "Mis Posts", icon: "edit-3", path: "/my-posts" },
+        { label: "Guardados", icon: "bookmark", path: "/saved" },
     ];
 
     const accountItems = [
-        { label: "Mi Perfil", icon: <UserIcon size={20} color={darkTextColor} />, path: "/profile" },
-        { label: "Mis Pedidos", icon: <ShoppingBagIcon size={20} color={darkTextColor} />, path: "/orders" },
-        { label: "Favoritos", icon: <HeartIcon size={20} color={darkTextColor} />, path: "/wishlist" },
-    ];
-
-    const moreItems = [
-        { label: "Acerca de Atelier", icon: <InformationCircleIcon size={20} color={darkTextColor} />, path: "/about" },
-        { label: "Ver Tienda Oficial", icon: <BuildingStorefrontIcon size={20} color={darkTextColor} />, path: "/official-store" },
-        { label: "Ayuda y Soporte", icon: <QuestionMarkCircleIcon size={20} color={darkTextColor} />, path: "/help" },
-    ];
-
-    const categories = [
-        { label: "Hombres", path: "/category/men" },
-        { label: "Mujeres", path: "/category/women" },
-        { label: "Niños", path: "/category/kids" },
+        { label: "Ajustes", icon: "settings", path: "/settings" },
+        { label: "Ayuda", icon: "help-circle", path: "/help" },
     ];
 
     return (
         <>
             {isSidebarOpen && (
                 <TouchableWithoutFeedback onPress={toggleSidebar}>
-                    <Animated.View
-                        style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            backgroundColor: "rgba(0,0,0,0.5)",
-                            opacity: backdropOpacity,
-                            zIndex: 49,
-                        }}
-                    />
+                    <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
                 </TouchableWithoutFeedback>
             )}
 
-            <Animated.View
-                style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: width * 0.75,
-                    height: "100%",
-                    backgroundColor: "#FFFFFF",
-                    transform: [{ translateX: slideX }],
-                    zIndex: 50,
-                }}
-            >
-                <SafeAreaView className="flex-1">
-                    {/* Header de Perfil */}
-                    <View style={{ backgroundColor: lightHeaderColor }} className="p-6 flex-row pt-14 items-center justify-between">
-                        <View className="flex-row items-center">
+            <Animated.View style={[styles.sidebarContainer, { transform: [{ translateX: slideX }] }]}>
+                <SafeAreaView style={styles.safeArea}>
+                    <View style={styles.contentWrapper}>
+                        {/* Header de Perfil */}
+                        <View style={styles.profileHeader}>
                             <Image
-                                source={{ uri: user?.fotoDePerfil || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }}
-                                className="w-12 h-12 rounded-full border-1"
-                                style={{ borderColor: '#4A433D' }}
+                                source={{ uri: user?.fotoDePerfil }}
+                                style={styles.avatar}
                             />
-                            <View className="ml-4">
-                                <Text style={{ color: '#4A433D' }} className="text-lg font-semibold">
-                                    {user?.nombre || 'Usuario Demo'}
-                                </Text>
-                                {user?.email && (
-                                    <Text className="text-gray-600 text-sm">
-                                        {user.email}
-                                    </Text>
-                                )}
-                                <TouchableOpacity onPress={() => {
-                                    toggleSidebar();
-                                    navigate('/profile')
-                                }}>
-                                    <Text className="text-blue-600 text-sm mt-1">
-                                        Ver perfil
-                                    </Text>
+                            <View style={styles.profileTextContainer}>
+                                <Text style={styles.userName}>{user?.nombre || 'Bienvenido'}</Text>
+                                <TouchableOpacity onPress={() => handleNavigation('/profile')}>
+                                    <Text style={styles.viewProfileLink}>Ver perfil</Text>
                                 </TouchableOpacity>
                             </View>
+                        </View>
 
+                        {/* Cuerpo del Sidebar con Scroll */}
+                        <ScrollView contentContainerStyle={styles.scrollContent}>
+                            {/* Sección: Mi Actividad */}
+                            <View style={styles.sectionContainer}>
+                                <Text style={styles.sectionTitle}>MI ACTIVIDAD</Text>
+                                {activityItems.map((item) => (
+                                    <TouchableOpacity key={item.label} style={styles.menuItem} onPress={() => handleNavigation(item.path)}>
+                                        <Feather name={item.icon as any} size={22} color={COLORS.textSecondary} style={styles.menuIcon} />
+                                        <Text style={styles.menuText}>{item.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            {/* Sección: Cuenta */}
+                            <View style={styles.sectionContainer}>
+                                <Text style={styles.sectionTitle}>CUENTA</Text>
+                                {accountItems.map((item) => (
+                                    <TouchableOpacity key={item.label} style={styles.menuItem} onPress={() => handleNavigation(item.path)}>
+                                        <Feather name={item.icon as any} size={22} color={COLORS.textSecondary} style={styles.menuIcon} />
+                                        <Text style={styles.menuText}>{item.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </ScrollView>
+                        
+                        {/* Footer con botón de Cerrar Sesión */}
+                        <View style={styles.footer}>
+                            <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
+                                <Feather name="log-out" size={22} color={COLORS.accent} style={styles.menuIcon} />
+                                <Text style={[styles.menuText, { color: COLORS.accent }]}>Cerrar Sesión</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
-
-                    {/* Cuerpo del Sidebar con Scroll */}
-                    <ScrollView className="flex-1 p-6 space-y-6 bg-[#FCFBEF]">
-                        {/* Sección: Navegación Principal */}
-                        <View>
-                            <Text style={{ color: darkTextColor }} className="text-sm font-bold mb-3">NAVEGACIÓN</Text>
-                            {navItems.map((item) => (
-                                <TouchableOpacity
-                                    key={item.label}
-                                    className="flex-row items-center py-2"
-                                    onPress={toggleSidebar}
-                                >
-                                    {item.icon}
-                                    <Text className="ml-3 text-base" style={{ color: darkTextColor }}>{item.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Sección: Categorías */}
-                        <View>
-                            <TouchableOpacity onPress={() => setIsCategoriesExpanded(!isCategoriesExpanded)} className="flex-row items-center justify-between">
-                                <Text style={{ color: darkTextColor }} className="text-sm font-bold">CATEGORÍAS</Text>
-                                {isCategoriesExpanded ? (
-                                    <ChevronUpIcon size={16} color={darkTextColor} />
-                                ) : (
-                                    <ChevronDownIcon size={16} color={darkTextColor} />
-                                )}
-                            </TouchableOpacity>
-                            {isCategoriesExpanded && (
-                                <View className="mt-3 ml-4 space-y-2">
-                                    {categories.map((item) => (
-                                        <TouchableOpacity
-                                            key={item.label}
-                                            onPress={toggleSidebar}
-                                            className="py-1"
-                                        >
-                                            <Text style={{ color: darkTextColor }} className="text-sm">{item.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-                            )}
-                        </View>
-
-                        {/* Sección: Mi Cuenta */}
-                        <View>
-                            <Text style={{ color: darkTextColor }} className="text-sm font-bold mb-3">MI CUENTA</Text>
-                            {accountItems.map((item) => (
-                                <TouchableOpacity
-                                    key={item.label}
-                                    className="flex-row items-center py-2"
-                                    onPress={toggleSidebar}
-                                >
-                                    {item.icon}
-                                    <Text className="ml-3 text-base" style={{ color: darkTextColor }}>{item.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Sección: Información y Soporte */}
-                        <View>
-                            <Text style={{ color: darkTextColor }} className="text-sm font-bold mb-3">INFORMACIÓN Y SOPORTE</Text>
-                            {moreItems.map((item) => (
-                                <TouchableOpacity
-                                    key={item.label}
-                                    className="flex-row items-center py-2"
-                                    onPress={toggleSidebar}
-                                >
-                                    {item.icon}
-                                    <Text className="ml-3 text-base" style={{ color: darkTextColor }}>{item.label}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        {/* Botón de Cerrar Sesión (ahora dentro del ScrollView) */}
-                        <View className="pt-40">
-                            <TouchableOpacity
-                                className="flex-row items-center justify-center py-3 bg-white rounded-lg shadow-sm border border-black"
-                                onPress={handleLogout
-
-                                }
-                            >
-                                <ArrowRightOnRectangleIconSolid size={20} color="black" />
-                                <Text className="ml-3 text-black text-base font-semibold">Cerrar Sesión</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </ScrollView>
                 </SafeAreaView>
             </Animated.View>
         </>
     );
 };
+
+const styles = StyleSheet.create({
+    backdrop: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        zIndex: 49,
+    },
+    sidebarContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: width * 0.8,
+        height: '100%',
+        backgroundColor: COLORS.background,
+        zIndex: 50,
+    },
+    safeArea: {
+        flex: 1,
+    },
+    contentWrapper: {
+        flex: 1,
+    },
+    profileHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
+    },
+    avatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+    },
+    profileTextContainer: {
+        marginLeft: 16,
+    },
+    userName: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: COLORS.textPrimary,
+    },
+    viewProfileLink: {
+        fontSize: 14,
+        color: '#007AFF', // Un azul estándar para links
+        marginTop: 4,
+    },
+    scrollContent: {
+        padding: 24,
+    },
+    sectionContainer: {
+        marginBottom: 24,
+    },
+    sectionTitle: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: COLORS.textSecondary,
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+    },
+    menuIcon: {
+        marginRight: 20,
+    },
+    menuText: {
+        fontSize: 16,
+        color: COLORS.textPrimary,
+        fontWeight: '500',
+    },
+    footer: {
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        borderTopWidth: 1,
+        borderTopColor: COLORS.border,
+    },
+});
 
 export default Sidebar;
